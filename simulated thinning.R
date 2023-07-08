@@ -1,4 +1,4 @@
-
+set.seed(1)
 library(dplyr)
 
 ###function for calculating UAI
@@ -93,13 +93,14 @@ HDIS0= sqrt(0.5*((sqrt(0.008)-sqrt(sum(data1$W==0)/length(data1$x)))^2
   data3=data1[data1$x<=buff|data1$x>=28,]
   data3=rbind(data1[data1$y<=buff|data1$y>=18,],data3)
   data3=distinct(data3)#data3 stand for trees in buffer area
-  
+  nnr=length(data2$no)
 #The variables used to record the results
-  diejl = matrix(nr=142,nc=80)
+  diejl = matrix(nr=nnr+1,nc=80)
   no = c()
   z = c()
   w = c()
   ul = c()  
+  dl = c()
   
 #start thinning,80 trees would be thinned
   for (k in 1:80) {
@@ -112,27 +113,48 @@ HDIS0= sqrt(0.5*((sqrt(0.008)-sqrt(sum(data1$W==0)/length(data1$x)))^2
         x0=datal[o,]$x;y0=datal[o,]$y
         Near5=Near.f(x0,y0,datal)[1:5,]
         Near4=Near5[2:5,]
-        datal$W[i]=w.f(x0,y0,Near4$x,Near4$y)#calculate UAI 
+        datal$W[i]=w.f(x0,y0,Near4$x,Near4$y)#calculate UAI
+        dataCore=datal[datal$x>buff&datal$x<28,]
+        dataCore=dataCore[dataCore$y>buff&dataCore$y<18,]
       }
       #calculate HDIS
-      HDIS= sqrt(0.5*((sqrt(0.008)-sqrt(sum(datal$W==0)/length(datal$x)))^2+(sqrt(0.224)-sqrt(sum(datal$W==0.25)/length(datal$x)))^2+(sqrt(0.576)-sqrt(sum(datal$W==0.5)/length(datal$x)))^2+(sqrt(0.16)-sqrt(sum(datal$W==0.75)/length(datal$x)))^2+(sqrt(0.032)-sqrt(sum(datal$W==1)/length(datal$x)))^2))
+      HDIS= sqrt(0.5*((sqrt(0.008)-sqrt(sum(dataCore$W==0)/length(dataCore$x)))^2+(sqrt(0.224)-sqrt(sum(dataCore$W==0.25)/length(dataCore$x)))^2+(sqrt(0.576)-sqrt(sum(dataCore$W==0.5)/length(dataCore$x)))^2+(sqrt(0.16)-sqrt(sum(dataCore$W==0.75)/length(dataCore$x)))^2+(sqrt(0.032)-sqrt(sum(dataCore$W==1)/length(dataCore$x)))^2))
       diejl[i,k]=HDIS
       diejl[is.na(diejl)] <- 100
-      #Find out the row number of the removed tree which gets the minimum of HDIS 
-      z=which(diejl[,k] == min(diejl[,k]), arr.ind=TRUE)[1]
+      
     }
-    #record the no of that tree
-    no[k] = data2$no[z]
-    #Remove that tree from core area
-    data2=data2[-z,]
-    w[k] = mean(datal$W)
-    ul[k] = 0.496+sqrt(0.033984/length(datal$no))*1.96
+   #Find out the row number of the removed tree which gets the minimum HDIS. 
+  #If more than one removed tree gets a similar minimum HDIS, then select one from them randomly    
+  if(length(which(diejl[,k] == min(diejl[,k])))>1){
+    z=sample(which(diejl[,k] == min(diejl[,k]),arr.ind=TRUE),1,size=1)}
+  else{z=which(diejl[,k] == min(diejl[,k]), arr.ind=TRUE)} 
+  #print(which(diejl[,k] == min(diejl[,k]), arr.ind=TRUE))
+  #print(z)
+  #record the no of that tree
+  no[k] = data2$no[z]
+  #print(no[k])
+  #Remove that tree from core area
+  data2=data2[-z,]
+ #Recalculate the core UAI      
+  datal = rbind(data2,data3)
+  le = length(datal$x)
+  for (j in 1:le) {
+    x0=datal[j,]$x;y0=datal[j,]$y
+    Near5=Near.f(x0,y0,datal)[1:5,]
+    Near4=Near5[2:5,]
+    datal$W[i]=w.f(x0,y0,Near4$x,Near4$y)
+    dataCore=datal[datal$x>buff&datal$x<28,]
+    dataCore=dataCore[dataCore$y>buff&dataCore$y<18,]
   }
+  w[k] = mean(dataCore$W)
+  ul[k] = 0.496+sqrt(0.033984/length(data2$no))*1.96
+  dl[k] = 0.496-sqrt(0.033984/length(data2$no))*1.96
+}
   
   
  for (i in 1:80) {
-   diejl[142,i]=min(diejl[,i])
+   diejl[nnr+1,i]=min(diejl[,i])
  }
 #The change of HDIS during thinning  
-bianhua =  c(Hellinger0,diejl[142,])
+bianhua =  c(Hellinger0,diejl[nnr+1,])
 
